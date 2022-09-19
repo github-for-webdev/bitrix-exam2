@@ -1,0 +1,53 @@
+Документация по коду:
+
+ShowProperty("Идентификатор свойства") - отображает свойство страницы, учитывая свойства раздела
+SetPageProperty("Идентификатор свойства", "Значение свойства") - устанавливает свойство для текущей страницы
+setResultCacheKeys(array("список ключей массива $arResult")) - (из задания) передаём значение из массива "DATE_FIRST_NEWS" на сохранение, чтобы получить его в некэшируемом файле component_epilog.php
+
+Выполнение билета:
+
+Копируем шаблон furniture_pale-blue в папку local.
+
+В /www/local/templates/furniture_pale-blue/header.php перед строкой "<title><?$APPLICATION->ShowTitle()?></title>" добавляем:
+<meta property="specialdate" content="<?$APPLICATION->ShowProperty("specialdate")?>">
+
+specialdate - это новое созданное нами свойство в Управлении структурой;
+specialdate по заданию имеет значение "100", поэтому в корневой папке необходимо указать заданное значение.
+Администрирование: Рабочий стол/Контент/Структура сайта/Файлы и папки->Дополнительно->Свойство папки: Добавляем код specialdate со значением – 100.
+
+Из папки /www/bitrix/components/bitrix/news/templates/ копируем в папку /local/templates/furniture_pale-blue/components/bitrix/news/ папку .default.
+В .parameters.php в массив $arTemplateParameters (после ключа "DISPLAY_PREVIEW_TEXT") добавляем:
+
+"SPECIALDATE" => Array(
+     "NAME" => GetMessage("SPECIALDATE"),
+     "TYPE" => "CHECKBOX",
+     "DEFAULT" => "Y",
+),
+
+В файле .parameters.php папки lang/ru добавляем параметр:
+
+$MESS["SPECIALDATE"] = "Установить свойство страницы specialdate";
+
+В файл news.php в массив вызова компонента bitrix:news.list (после ключа "CHECK_DATES" => $arParams["CHECK_DATES"]) добавляем:
+
+"SPECIALDATE" => $arParams["SPECIALDATE"],
+
+В шаблоне компонента news.list (/www/local/templates/furniture_pale-blue/components/bitrix/news/.default/bitrix/news.list/.default/)
+
+создаем два файла: component_epilog.php и result_modifier.php.
+
+В result_modifier.php:
+
+<? if (!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED !== true) die(); ?>
+<? if ($arParams["SPECIALDATE"] == "Y")
+{
+    $arResult["SPECIALDATE"] = $arResult["ITEMS"][0]["ACTIVE_FROM"];
+    $this->getComponent()->SetResultCacheKeys(array("SPECIALDATE"));
+}
+
+В component_epilog.php:
+
+if ($arParams['SPECIALDATE'] == 'Y')
+{
+    $APPLICATION->SetPageProperty("specialdate", $arResult['SPECIALDATE']);
+}
