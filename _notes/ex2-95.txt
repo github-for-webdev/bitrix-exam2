@@ -1,0 +1,98 @@
+[ex2-95] Упростить меню в адмистративном разделе для контент-менеджера
+• Если пользователь принадлежи группе «Контент-редакторы» (уже создана, дать права на
+редактирование иблока «Новости»), то в административном разделе для него убрать из левого
+меню все пункты кроме Контент и его подпункта Новости.
+• Если пользователь администратор – то он должен видеть полный список меню.
+• Создать пользователя с данными, логин: manager, почта manager@manager.ru, пароль 925526
+• Поместить его в группу «Контент-редакторы», авторизоваться из-под него, проверить
+построение меню
+• Страница редактирования информационного блока
+/bitrix/admin/iblock_list_admin.php?IBLOCK_ID=1&type=news&lang=ru
+
+Документация по коду:
+
+OnBuildGlobalMenu - событие, которое работает с меню в админке
+$aGlobalMenu - 1-й параметр, включающий в себя:
+    [menu_id] => ID
+    [text] => Название раздела меню
+    [title] => Заголовок раздела меню
+    [url] => ссылка
+    [sort] => сортировка
+    [items_id] => global_menu_desktop
+    [help_section] => desktop
+    [items] => Array()
+$aModuleMenu - 2-й параметр (позволит найти из задачи нужный инфоблок и элемент из него)
+CGroup - класс для работы с группами пользователей
+GetUserGroupList(ID) - группы пользователя с указанным ID
+GetList($by = "c_sort", $order = "asc", array()) - cписок элементов (групп)
+
+Выполнение билета:
+
+Создать пользователя в административном разделе:
+	e-mail: manager@manager.ru
+	логин: manager
+	пароль: 925526
+	Группы: Контент-редакторы
+Установить доступ контент-редактору ко всем инфоблокам, кроме Новости, "по умолчанию".
+
+В файле events.php:
+
+<?
+AddEventHandler("main", "OnBuildGlobalMenu", array("Ex2", "Ex2_95"));
+
+class Ex2
+{
+    	function Ex2_95(&$aGlobalMenu, &$aModuleMenu)
+	{
+        $isAdmin = false;
+        $isManager = false;
+
+        // получаем группы текущего пользователя
+        global $USER;
+        $userGroup = CUSER::GetUserGroupList($USER->GetID());
+        // получаем ID группы контент-редакторы
+        $contentGroupID = CGroup::GetList(
+            $by = "c_sort",
+            $order = "asc",
+            array(
+                "STRING_ID" => "content_editor"
+            )
+        )->Fetch()["ID"];
+        // перебираем группы пользователя
+        while ($group = $userGroup -> Fetch()) {
+
+            if ($group["GROUP_ID"] == 1) {
+                $isAdmin = true;
+            }
+
+            if ($group["GROUP_ID"] == $contentGroupID) {
+                $isManager = true;
+            }
+        }
+
+        $arModuleMenuNew = array();
+        // если пользователь не принадлежит группе администраторы и принадлежит группе контент редакторы
+        if (!$isAdmin && $isManager) {
+
+            foreach ($aModuleMenu as $item) {
+
+                //перебираем массив модулей меню и оставляем только ИБ "Новости"
+                if ($item["items_id"] == "menu_iblock_/news") {
+                    $aModuleMenu = [$item]; //перезаписываем массив
+
+                    foreach ($item["items"] as $childItem) { //в ИБ "Новости"
+
+                        if ($childItem["items_id"] == "menu_iblock_/news/1") { //ищем элемент инфоблока с id1
+                            $aModuleMenu[0]["items"] = [$childItem];
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            $aGlobalMenu  = ["global_menu_content" => $aGlobalMenu["global_menu_content"]]; //из левой панели отлавливаем нужным нам раздел "Контент" и перезаписываем массив, чтобы остальные разделы не отображались
+        }
+    }
+}
+
+Итог: в самой левой вкладке в административном меню все разделы, кроме Контента, скрыты.
