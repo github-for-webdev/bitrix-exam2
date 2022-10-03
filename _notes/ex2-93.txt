@@ -1,0 +1,56 @@
+[ex2-93] Записывать в Журнал событий открытие не существующих страниц сайта
+
+1. Если нет страницы, сайт вернул 404 - записать в журнал событий
+2. Обрабатывать несуществующие и динамические страницы
+3. Если страница не найдна - в системе создаётся константа ERROR_404 = "Y"
+4. Параметры записи в журнал
+SEVERITY	|	INFO
+AUDIT_TYPE_ID	|	ERROR_404
+MODULE_ID	|	main
+DESCRIPTION	|	url страницы
+
+5. Проверка: открыть адреса несуществующих страниц
+-	/not_real/?not=N
+-	/news/not_real/
+в журнале /bitrix/admin/event_log.php?lang=ru должны появится соответствующие записи
+
+Заметки:
+
+file_exists() - Проверяет, существует ли файл по указанному пути
+include_once - Подключает один раз указанный файл
+IncludeModuleLangFile(__FILE__) - подключает языковой файл
+OnEpilog - событие, которое вызывается в конце визуальной части эпилога сайта
+RestartBuffer() - очищает накопленный буфер
+CEventLog::Add() - записываем лог в систему
+GetCurPage() - получаем полный url текущей страницы
+
+Решение:
+переход в local->php_interface->include->events.php
+<?php
+AddEventHandler("main", "OnEpilog", array("Ex2", "Ex2_93"));
+
+class Ex2
+{
+	function Ex2_93()
+	{
+		if (defined("ERROR_404") && ERROR_404 == "Y")
+		{
+			global $APPLICATION;
+			$APPLICATION->RestartBuffer(); //очищаем всё, что получили до текущего момента
+			include $_SERVER["DOCUMENT_ROOT"] . "/" . SITE_TEMPLATE_PATH . "/header.php";
+			include $_SERVER["DOCUMENT_ROOT"] . "/404.php"; //подгружаем страницу 404 принудительно, так как в противном случае получаем страницу с ненайденным элементом
+			include $_SERVER["DOCUMENT_ROOT"] . "/" . SITE_TEMPLATE_PATH . "/footer.php";
+			CEventLog::Add(
+				array(
+					"SEVERITY"	=>	"INFO",
+					"AUDIT_TYPE_ID"	=>	"ERROR_404",
+					"MODULE_ID"	=>	"main",
+					"DESCRIPTION"	=>	$APPLICATION->GetCurPage()
+				)
+			)
+		}
+	}
+}
+
+Заходим и проверяем страницы /not_real/?not=N и /news/not_real/
+После этого смотрим, что в административной панели в Журнале событий записались логи.
