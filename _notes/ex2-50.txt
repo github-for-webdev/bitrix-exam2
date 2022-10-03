@@ -1,0 +1,68 @@
+[ex2-50] Проверка при деактивации товара
+• Реализовать проверку при деактивации элемента в существующем информационном блоке
+Продукция.
+• Если количество просмотров товара (стандартное поле SHOW_COUNTER) больше 2, то отменять
+редактирование элемента.
+• При отмене – возвращать текст ошибки, c помощью соответствующей API функции. Текст:
+«Товар невозможно деактивировать, у него [count] просмотров», где [count] - количество
+просмотров элемента
+
+Документация по коду:
+OnBeforeIBlockElementUpdate - событие вызывается до изменения элемента
+CIBlockElement::GetList(array(), $arFilter, false, false, $arSelect) - список элементов инфоблока
+throwException() - выбросить исключение
+->Fetch() - делает выборку значений полей в массив. Возвращает массив вида Array("поле"=>"значение" [, ...]) и передвигает курсор на следующую запись. Если достигнута последняя запись (или в результате нет ни одной записи) - метод вернет "false"
+
+Выполнение билета:
+
+В папке local создать папку php_interface,
+в ней файл init.php (данный файл вызывается в первую очередь на всех страницах),
+в котором необходимо подключить файлы, описанные ниже:
+require_once $_SERVER["DOCUMENT_ROOT"] . "/local/php_interface/include/const.php";
+require_once $_SERVER["DOCUMENT_ROOT"] . "/local/php_interface/include/events.php";
+
+В этой же папке создать папку include создать
+events.php - для инициализации скриптов отлова событий
+const.php - для констант
+Папку lang/ru->events.php: <? $MESS["EX2_50_ERROR"] = "Товар невозможно деактивировать, у него #COUNT# просмотров";
+
+events.php:
+<?
+IncludeModuleLangFile(__FILE__);
+AddEventHandler("iblock", "OnBeforeIBlockElementUpdate", array("Ex2", "Ex2_50"));
+
+class Ex2
+{
+	function Ex2_50(&$arFields)
+	{
+		// Если меняем элемент каталога
+		if ($arFields["IBLOCK_ID"] == IBLOCK_CATALOG) { //ограничим отлов событий только для каталога "Продукция"
+			//И Если элемент деактивирован
+			if ($arFields["ACTIVE"] == "N") {
+				//у массива $arFields нет поля SHOW_COUNTER, поэтому нужно сделать запрос к БД и получить поля изменяемого элемента
+				$arSelect = array(
+					"ID",
+					"IBLOCK_ID",
+					"NAME",
+					"SHOW_COUNTER"
+				);
+				$arFilter = array(
+					"IBLOCK" => IBLOCK_CATALOG,
+					"ID" => $arFields["ID"]
+				);
+				$res = CIBlockElement::GetList(array(), $arFilter, false, false, $arSelect);
+				$arItems = $res->Fetch();
+				}
+				if ($arItems["SHOW_COUNTER"] > MAX_COUNT) { //если число просмотров больше 2 (учитываются только уникальные просмотры, т. е. в режиме инкогнито), то прерываем изменение в элементе и выводим над панелью окно с ошибкой
+					global $APPLICATION;
+					$APPLICATION->throwException(GetMessage("EX2_50_ERROR", array("#COUNT#" => $arItems["SHOW_COUNTER"])));
+					return false;
+				}
+			}
+		}
+	}
+}
+
+const.php:
+define("IBLOCK_CATALOG", 2); // ID блока "Продукции"
+define("MAX_COUNT", 2);

@@ -1,9 +1,34 @@
 <?
 IncludeModuleLangFile(__FILE__);
+AddEventHandler("iblock", "OnBeforeIBlockElementUpdate", array("Ex2", "Ex2_50"));
 AddEventHandler("main", "OnBeforeEventAdd", array("Ex2", "Ex2_51"));
 
 class Ex2
 {
+    function Ex2_50(&$arFields)
+	{
+        if ($arFields["IBLOCK_ID"] == IBLOCK_CATALOG) {
+            if ($arFields["ACTIVE"] == "N") {
+                $arSelect = array(
+					"ID",
+					"IBLOCK_ID",
+					"NAME",
+					"SHOW_COUNTER"
+				);
+				$arFilter = array(
+					"IBLOCK" => IBLOCK_CATALOG,
+					"ID" => $arFields["ID"]
+				);
+				$res = CIBlockElement::GetList(array(), $arFilter, false, false, $arSelect);
+				$arItems = $res->Fetch();
+				if ($arItems["SHOW_COUNTER"] > MAX_COUNT) {
+					global $APPLICATION;
+					$APPLICATION->throwException(GetMessage("EX2_50_ERROR", array("#COUNT#" => $arItems["SHOW_COUNTER"])));
+					return false;
+				}
+            }
+        }
+	}
     function Ex2_51(&$event, &$lid, &$arFields)
     {
         if ($event == "FEEDBACK_FORM") {
