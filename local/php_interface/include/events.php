@@ -3,6 +3,7 @@ IncludeModuleLangFile(__FILE__);
 AddEventHandler("iblock", "OnBeforeIBlockElementUpdate", array("Ex2", "Ex2_50"));
 AddEventHandler("main", "OnBeforeEventAdd", array("Ex2", "Ex2_51"));
 AddEventHandler("main", "OnEpilog", array("Ex2", "Ex2_93"));
+AddEventHandler("main", "OnBeforeProlog", array("Ex2", "Ex2_94"));
 AddEventHandler("main", "OnBuildGlobalMenu", array("Ex2", "Ex2_95"));
 
 class Ex2
@@ -83,6 +84,35 @@ class Ex2
             );
 		}
 	}
+    function Ex2_94()
+    {
+        global $APPLICATION;
+
+        if (\Bitrix\Main\Loader::includeModule("iblock")) {
+            $arFilter = array(
+                "IBLOCK_ID" => IBLOCK_META,
+                "NAME" => $APPLICATION->GetCurDir()
+            );
+            $arSelect = array(
+                "IBLOCK_ID",
+                "ID",
+                "PROPERTY_title",
+                "PROPERTY_description",
+            );
+
+            $ob = CIBlockElement::GetList(
+                array(),
+                $arFilter,
+                false,
+                false,
+                $arSelect
+            );
+            if ($arRes = $ob->Fetch()) {
+                $APPLICATION->SetPageProperty("title", $arRes["PROPERTY_TITLE_VALUE"]);
+                $APPLICATION->SetPageProperty("description", $arRes["PROPERTY_DESCRIPTION_VALUE"]);
+            }
+        }
+    }
     function Ex2_95(&$aGlobalMenu, &$aModuleMenu)
 	{
         $isAdmin = false;
