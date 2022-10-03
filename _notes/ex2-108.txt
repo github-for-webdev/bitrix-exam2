@@ -1,0 +1,79 @@
+Документация по коду:
+$arParams – переменная с массивом параметров, которые входят в компонент
+CIBlockElement - класс для работы с элементами информационных блоков.
+CIBlockElement::GetList(
+    "Поле сортировки",
+    "Поле фильтрации",
+    "Массив полей для группировки",
+    "Параметры для постраничной навигации",
+    "Массив возвращаемых полей"
+);
+
+Выполнение билета:
+
+Типы инфоблоков/Инфоблок "Новости"->Добавить инфоблок "Canonical"
+В настройках раздела:
+    Инфоблок: подключить инфоблок к сайту и прописать название
+    Доступ: чтение (для всех пользователей)
+    Свойства: Название->Новость, Тип->Привязка к элементу, Код->NEW, Изм.->Поле "Информационный блок": [Тип] Новости, [Инфоблок] Новости
+
+В созданный инфоблок Canonical добавить элемент: Название: http://test.ru/test/, (под названием) Новость: Международная мебельная выставка SALON DEL MOBILE
+
+В local\templates\furniture_blue\components\bitrix\news\.default\.parameters
+в массиве $arTemplateParameters добавить:
+    "ID_IBLOCK_CANONICAL" => Array(
+        "NAME" => GetMessage("ID_IBLOCK_CANONICAL"), //строковый парамент, в папке lang будет иметь значение как "ID информационного блока для rel=canonical"
+        "TYPE" => "STRING",
+    )
+
+Проверка:
+В публичной части перейти в раздел "Новости", включить режим правки и в параметрах компонента проверить, что свойство в "Дополнительные настройки" отобразилось,
+Присвоить этому свойству ID информационного блока "Canonical"
+
+В Управлении структурой добавить свойство "canonical"
+
+Чтобы использовать свойство ID_IBLOCK_CANONICAL на детальной страницы, его нужно передать в вызов компонента "bitrix:news.detail"
+В local\templates\furniture_blue\components\bitrix\news\.default\detail.php
+В компонент "bitrix:news.detail", добавить в массив строчку "ID_IBLOCK_CANONICAL" => $arParams["ID_IBLOCK_CANONICAL"]
+
+Проверка:
+В local\templates\furniture_blue\components\bitrix\news\.default\bitrix\news.detail\.default\template.php
+Распечатать массив $arParams
+
+Для расширения возможностей
+В local\templates\furniture_blue\components\bitrix\news\.default\bitrix\news.detail\.default\
+добавить два файла: result_modifier.php
+
+if (!empty($arParams["ID_IBLOCK_CANONICAL"]))
+{
+    $arSelect = array(
+        "ID",
+        "IBLOCK_ID",
+        "NAME",
+        "PROPERTY_NEW"
+    );
+    $arFilter = array(
+        "IBLOCK_ID" => $arParams["ID_IBLOCK_CANONICAL"],
+        "PROPERTY_NEW" => $arResult["ID"],
+        "ACTIVE" => "Y"
+    );
+    $res = CIBlockElement::GetList(array(), $arFilter, false, false, $arSelect);
+
+    if ($ob = $res->GetNextElement()) {
+        $arFields = $ob->GetFields();
+        $arResult["CANONICAL_LINK"] = $arFields["NAME"];
+        $this->getComponent()->SetResultCacheKeys(array("CANONICAL_LINK"));
+    }
+}
+
+и component_epilog.php
+
+if (isset($arResult["CANONICAL_LINK"]))
+{
+    $APPLICATION->SetPageProperty("canonical", $arResult["CANONICAL_LINK"]);
+}
+
+Проверка:
+Только на детальной странице "Международная мебельная выставка SALON DEL MOBILE" в разделе "Новости"
+между тегами <head></head> будет выведена строка
+<link rel="canonical" href="http://test.ru/test/" />
